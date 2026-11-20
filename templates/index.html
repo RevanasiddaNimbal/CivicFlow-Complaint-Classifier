@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicFlow | Explainable AI Civic Complaint Classifier</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏛️</text></svg>">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Top App Header -->
+        <header class="app-header">
+            <div class="brand-section">
+                <div class="brand-icon">CF</div>
+                <div>
+                    <h1 class="brand-title">CivicFlow</h1>
+                    <p class="brand-subtitle">Civic Complaint Classifier</p>
+                </div>
+            </div>
+
+            <div>
+                {% if models_ready %}
+                    <span class="status-indicator" title="Classification models loaded and ready">
+                        <span class="status-dot"></span>
+                        Model Ready
+                    </span>
+                {% else %}
+                    <span class="status-indicator" style="background: #FEF2F2; color: #991B1B; border-color: #FECACA;">
+                        <span class="status-dot" style="background-color: #DC2626;"></span>
+                        Model Offline
+                    </span>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- Navigation Bar (Top 4 Tabs) -->
+        <nav class="app-nav" aria-label="Main Navigation">
+            <button class="nav-tab-btn active" id="nav-home" onclick="showPage('home')">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Home
+            </button>
+            <button class="nav-tab-btn" id="nav-insights" onclick="showPage('insights')">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+                AI Insights
+            </button>
+            <button class="nav-tab-btn" id="nav-analysis" onclick="showPage('analysis')">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                </svg>
+                Complaint Analysis
+            </button>
+            <button class="nav-tab-btn" id="nav-history" onclick="showPage('history')">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                History
+            </button>
+        </nav>
+
+        <!-- ============================================================= -->
+        <!-- 1. HOME PAGE                                                  -->
+        <!-- ============================================================= -->
+        <main id="page-home" class="page-view active">
+            <div class="grid-2col">
+                <!-- Left Card: Input -->
+                <div class="card">
+                    <h2 class="card-title">Submit a Complaint</h2>
+                    <p class="card-subtitle">Enter details about the civic or public issue in your area.</p>
+
+                    <label for="complaintInput" class="form-label">Complaint Description</label>
+                    <textarea 
+                        id="complaintInput" 
+                        class="form-textarea" 
+                        placeholder="Type your complaint here (for example: There is a deep pothole on Main Street near the market)..."
+                        maxlength="1000"
+                        oninput="updateCharCount()"
+                    ></textarea>
+                    <div class="char-counter"><span id="charCount">0</span> / 1000 characters</div>
+
+                    <!-- Example Complaints -->
+                    <div class="example-section">
+                        <div class="example-title">Example Complaints (Click to test):</div>
+                        <div class="example-chips">
+                            <button type="button" class="chip-btn" onclick="selectTemplate('There are deep potholes and broken asphalt on the main avenue.')">
+                                🛣️ Roads Issue
+                            </button>
+                            <button type="button" class="chip-btn" onclick="selectTemplate('A water supply pipe burst near the park and is wasting clean drinking water.')">
+                                💧 Water Leakage
+                            </button>
+                            <button type="button" class="chip-btn" onclick="selectTemplate('The power transformer is sparking dangerously and causing a total blackout.')">
+                                💡 Electricity Issue
+                            </button>
+                            <button type="button" class="chip-btn" onclick="selectTemplate('Garbage bins are overflowing and no one has collected waste in a week.')">
+                                🚮 Sanitation Issue
+                            </button>
+                            <button type="button" class="chip-btn" onclick="selectTemplate('A heavy truck is double parked at the intersection, causing a massive gridlock.')">
+                                🚦 Traffic Issue
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="button-group">
+                        <button id="btnClassify" class="btn btn-primary" onclick="classifyComplaint()">
+                            <span class="spinner" id="btnSpinner"></span>
+                            <span id="btnText">Classify Complaint</span>
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearInputForm()">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Right Card: Result -->
+                <div class="card">
+                    <h2 class="card-title">Complaint Result</h2>
+                    <p class="card-subtitle">Assigned municipal department and routing confidence.</p>
+
+                    <!-- Empty Placeholder -->
+                    <div id="homePlaceholder" class="placeholder-box">
+                        <div class="placeholder-icon">🏛️</div>
+                        <div class="placeholder-title">No complaint classified yet</div>
+                        <div class="placeholder-text">Type a complaint on the left or click an example to view the assigned department and priority.</div>
+                    </div>
+
+                    <!-- Active Result View -->
+                    <div id="homeResultBox" style="display: none;">
+                        <div class="result-header-box" id="homeDeptBanner">
+                            <div class="result-dept-info">
+                                <div class="result-avatar" id="homeDeptIcon">🛣️</div>
+                                <div>
+                                    <div class="result-dept-name" id="homeDeptName">Roads Department</div>
+                                    <div class="result-dept-sub">Assigned Municipal Division</div>
+                                </div>
+                            </div>
+                            <div class="result-confidence-metric">
+                                <div class="result-confidence-value" id="homeConfidenceVal">95.0%</div>
+                                <div class="result-confidence-label">Prediction Confidence</div>
+                            </div>
+                        </div>
+
+                        <!-- Priority Badge -->
+                        <div style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">Complaint Priority:</span>
+                            <span class="badge" id="homePriorityBadge">Priority</span>
+                        </div>
+
+                        <!-- Department Probabilities -->
+                        <div style="margin-bottom: 1.25rem;">
+                            <div class="prob-section-title">Department Prediction Breakdown</div>
+                            <div class="prob-list" id="homeProbList">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Link to AI Insights -->
+                        <div style="border-top: 1px solid var(--border-color); padding-top: 0.875rem;">
+                            <button type="button" class="btn-link" onclick="showPage('insights')">
+                                View detailed AI explanation →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ============================================================= -->
+        <!-- 2. AI INSIGHTS PAGE                                           -->
+        <!-- ============================================================= -->
+        <section id="page-insights" class="page-view">
+            <div class="page-header">
+                <h2 class="page-title">AI Insights</h2>
+                <p class="page-description">A simple explanation of why the model selected the assigned department.</p>
+            </div>
+
+            <!-- Top Card: Summary & Explanation -->
+            <div class="card">
+                <div class="card-title">
+                    <span>Why this prediction?</span>
+                    <span class="badge badge-dept" id="insightsDeptBadge">Department</span>
+                </div>
+                <p class="card-subtitle">How words from your complaint influenced the AI model's decision.</p>
+
+                <!-- Explanation Paragraph -->
+                <div class="status-box status-box-info" id="insightsExplainBox">
+                    <div class="status-box-icon">💡</div>
+                    <div>
+                        <div class="status-box-title">Prediction Summary</div>
+                        <div class="status-box-desc" id="insightsExplanationText">
+                            Submit a complaint from the Home page to view the explanation.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Review Status Alert -->
+                <div class="status-box status-box-success" id="insightsReviewBox">
+                    <div class="status-box-icon" id="insightsReviewIcon">✓</div>
+                    <div>
+                        <div class="status-box-title" id="insightsReviewTitle">Review Status</div>
+                        <div class="status-box-desc" id="insightsReviewDesc">
+                            Prediction confidence is sufficient for automatic routing.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two-Column Grid: Important Words & Probabilities -->
+            <div class="grid-equal">
+                <!-- Left Card: Important Words -->
+                <div class="card">
+                    <h3 class="card-title">Important Words</h3>
+                    <p class="card-subtitle">Words from your complaint that most strongly influenced the prediction.</p>
+
+                    <div id="insightsWordsList" class="simple-words-list">
+                        <div class="placeholder-box" style="padding: 1.5rem;">
+                            <div class="placeholder-text">Submit a complaint to see the influential words.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Card: Department Prediction & Urgency -->
+                <div class="card">
+                    <h3 class="card-title">Department Prediction</h3>
+                    <p class="card-subtitle">Likelihood of the complaint belonging to each municipal department.</p>
+
+                    <div class="prob-list" id="insightsProbList" style="margin-bottom: 1.5rem;">
+                        <div class="placeholder-box" style="padding: 1.5rem;">
+                            <div class="placeholder-text">Submit a complaint to see department probabilities.</div>
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                        <div style="font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.35rem;">
+                            Complaint Urgency
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span class="badge" id="insightsUrgencyBadge">Priority Level</span>
+                        </div>
+                        <p style="font-size: 0.8125rem; color: var(--text-muted); line-height: 1.45;" id="insightsUrgencyDesc">
+                            Urgency is estimated using simple keyword rules to prioritize safety hazards.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- 3. COMPLAINT ANALYSIS PAGE                                    -->
+        <!-- ============================================================= -->
+        <section id="page-analysis" class="page-view">
+            <div class="page-header">
+                <h2 class="page-title">How Your Complaint Is Processed</h2>
+                <p class="page-description">See how your text is cleaned, prepared, and checked before routing to the right department.</p>
+            </div>
+
+            <!-- Top Grid: Text Transformation & Similar Complaints -->
+            <div class="grid-equal" style="margin-bottom: 1.5rem;">
+                <!-- Text Transformation Comparison -->
+                <div class="card" style="margin-bottom: 0;">
+                    <h3 class="card-title">Before and After Comparison</h3>
+                    <p class="card-subtitle">Compare your original complaint with the cleaned text that the model reads.</p>
+
+                    <div style="margin-bottom: 1rem;">
+                        <div class="form-label" style="font-size: 0.75rem;">Original Complaint (What you typed)</div>
+                        <div class="details-text-box" id="analysisOriginalText">-</div>
+                    </div>
+
+                    <div>
+                        <div class="form-label" style="font-size: 0.75rem;">Cleaned Complaint (What the model reads)</div>
+                        <div class="details-text-box" id="analysisCleanedText">-</div>
+                    </div>
+                </div>
+
+                <!-- Similar Complaints Check -->
+                <div class="card" style="margin-bottom: 0;">
+                    <div class="card-title">
+                        <span>Similar Complaints Check</span>
+                        <span class="badge" id="analysisDupBadge">Check Status</span>
+                    </div>
+                    <p class="card-subtitle">Check if a similar issue was previously reported in your area.</p>
+
+                    <div class="similar-card-box" style="margin-top: 0;">
+                        <div class="similar-metric-row">
+                            <span class="similar-metric-label">Similarity Match</span>
+                            <span class="similar-metric-val" id="analysisSimilarityVal">0.0%</span>
+                        </div>
+
+                        <div style="font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.35rem;">
+                            Closest Past Complaint
+                        </div>
+                        <div class="similar-match-content">
+                            <div class="similar-match-meta">
+                                <span id="analysisSimilarDept">Department: -</span>
+                                <span id="analysisSimilarDate">Date: -</span>
+                            </div>
+                            <div class="similar-match-text" id="analysisSimilarText">
+                                No similar complaints found in past records.
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 0.85rem; font-size: 0.78rem; color: var(--text-muted); line-height: 1.45;">
+                            ℹ️ Note: Similar wording does not always mean an exact duplicate issue. Citizens may report separate problems in the same location.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Step-by-Step Processing (Two-Column Step Cards Grid) -->
+            <div>
+                <div style="margin-bottom: 0.5rem;">
+                    <h3 class="page-title" style="font-size: 1.15rem; margin-bottom: 0.25rem;">Step-by-Step Processing</h3>
+                    <p class="page-description">Follow the five simple steps taken to prepare your complaint for classification.</p>
+                </div>
+
+                <div class="analysis-step-grid" id="analysisStepGrid">
+                    <div class="placeholder-box" style="grid-column: 1 / -1; padding: 2.5rem;">
+                        <div class="placeholder-icon">⚙️</div>
+                        <div class="placeholder-title">No complaint analyzed yet</div>
+                        <div class="placeholder-text">Submit a complaint from the Home page to see each processing step here.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- 4. HISTORY PAGE                                               -->
+        <!-- ============================================================= -->
+        <section id="page-history" class="page-view">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.75rem;">
+                <div>
+                    <h2 class="page-title">Complaint History</h2>
+                    <p class="page-description">Previously classified complaints saved in the local database.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span id="historyRecordCount" style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500;">0 complaints</span>
+                    <button type="button" class="btn btn-danger-outline" onclick="confirmClearHistory()">
+                        Clear History
+                    </button>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <div class="table-wrapper" style="border: none; margin-top: 0;">
+                    <table class="clean-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Complaint Summary</th>
+                                <th>Department</th>
+                                <th>Confidence</th>
+                                <th>Priority</th>
+                                <th>Date & Time</th>
+                                <th style="text-align: right; width: 120px;">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                    Loading history records...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- 5. COMPLAINT DETAILS PAGE (Separate View)                     -->
+        <!-- ============================================================= -->
+        <section id="page-details" class="page-view">
+            <div class="details-nav-bar">
+                <button type="button" class="btn btn-secondary" onclick="showPage('history')">
+                    ← Back to History
+                </button>
+                <button type="button" class="btn btn-primary" id="btnDetailsReanalyze" onclick="reanalyzeCurrentRecord()">
+                    Re-analyze in Home
+                </button>
+            </div>
+
+            <div class="page-header">
+                <h2 class="page-title" id="detailsPageTitle">Complaint Details</h2>
+                <p class="page-description" id="detailsSubmissionDate">Submitted on -</p>
+            </div>
+
+            <!-- Card 1: Description -->
+            <div class="card">
+                <h3 class="card-title">Complaint Information</h3>
+                <p class="card-subtitle">Original citizen report and cleaned text representation.</p>
+
+                <div class="details-row-item">
+                    <div class="details-label">Original Complaint Description</div>
+                    <div class="details-text-box" id="detailsOriginalText">-</div>
+                </div>
+
+                <div class="details-row-item" style="margin-bottom: 0;">
+                    <div class="details-label">Cleaned Complaint Text</div>
+                    <div class="details-text-box" id="detailsCleanedText">-</div>
+                </div>
+            </div>
+
+            <!-- Two-Column Grid: Classification & Priority -->
+            <div class="grid-equal">
+                <!-- Card 2: Department & Confidence -->
+                <div class="card">
+                    <h3 class="card-title">Assigned Department & Confidence</h3>
+                    <p class="card-subtitle">Routing outcome saved at the time of classification.</p>
+
+                    <div class="result-header-box" id="detailsDeptBanner" style="margin-bottom: 1rem;">
+                        <div class="result-dept-info">
+                            <div class="result-avatar" id="detailsDeptIcon">🏛️</div>
+                            <div>
+                                <div class="result-dept-name" id="detailsDeptName">Department</div>
+                                <div class="result-dept-sub">Assigned Department</div>
+                            </div>
+                        </div>
+                        <div class="result-confidence-metric">
+                            <div class="result-confidence-value" id="detailsConfidenceVal">0%</div>
+                            <div class="result-confidence-label">Confidence</div>
+                        </div>
+                    </div>
+
+                    <div class="prob-section-title">Department Prediction Breakdown</div>
+                    <div class="prob-list" id="detailsProbList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Card 3: Priority & Urgency -->
+                <div class="card">
+                    <h3 class="card-title">Priority & Urgency</h3>
+                    <p class="card-subtitle">Rule-based priority assigned to this complaint.</p>
+
+                    <div style="margin-bottom: 1rem;">
+                        <span class="badge" id="detailsPriorityBadge">Priority</span>
+                    </div>
+
+                    <div class="details-row-item">
+                        <div class="details-label">Detected Urgency Keywords</div>
+                        <div id="detailsKeywordsBox" style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                            <span class="word-badge">None</span>
+                        </div>
+                    </div>
+
+                    <div class="details-row-item" style="margin-bottom: 0;">
+                        <div class="details-label">Urgency Guidance</div>
+                        <div class="details-value" id="detailsUrgencyReason" style="font-size: 0.875rem;">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two-Column Grid: Explanation & Similar Complaints -->
+            <div class="grid-equal">
+                <!-- Card 4: Why This Prediction -->
+                <div class="card">
+                    <h3 class="card-title">Why This Prediction?</h3>
+                    <p class="card-subtitle">Model explanation and words that influenced the assignment.</p>
+
+                    <div class="status-box status-box-info" style="margin-bottom: 1rem;">
+                        <div class="status-box-icon">💡</div>
+                        <div class="status-box-desc" id="detailsExplanationText">-</div>
+                    </div>
+
+                    <div class="details-label" style="margin-bottom: 0.5rem;">Influential Words</div>
+                    <div id="detailsWordsList" class="simple-words-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Card 5: Similar Complaints & Review Status -->
+                <div class="card">
+                    <h3 class="card-title">Similar Complaints & Review Status</h3>
+                    <p class="card-subtitle">Duplicate similarity evaluation and human review status.</p>
+
+                    <div class="details-label">Review Status</div>
+                    <div class="status-box status-box-success" id="detailsReviewBox" style="margin-bottom: 1.25rem;">
+                        <div class="status-box-icon" id="detailsReviewIcon">✓</div>
+                        <div class="status-box-desc" id="detailsReviewText">-</div>
+                    </div>
+
+                    <div class="details-label">Similar Past Complaint</div>
+                    <div class="similar-match-content" style="background: var(--bg-subtle);">
+                        <div class="similar-match-meta">
+                            <span id="detailsSimilarScore">Similarity: 0%</span>
+                            <span id="detailsSimilarDept">Department: -</span>
+                        </div>
+                        <div class="similar-match-text" id="detailsSimilarText">No similar complaint detected.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            CivicFlow © 2026 • AI-Powered Civic Complaint Classifier
+        </footer>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // Department Icons
+        const DEPT_ICONS = {
+            "Roads": "🛣️",
+            "Water": "💧",
+            "Electricity": "💡",
+            "Sanitation": "🚮",
+            "Traffic": "🚦"
+        };
+
+        // Cache last classified result & active details record
+        let latestPredictionData = null;
+        let activeRecordDetails = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchHistory();
+        });
+
+        // =============================================================
+        // Page Navigation (Strict Single-Page Display)
+        // =============================================================
+        function showPage(pageId) {
+            // Update Navigation Tab Buttons
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
+            const targetNav = document.getElementById(`nav-${pageId}`);
+            if (targetNav) targetNav.classList.add('active');
+
+            // Hide all page views
+            document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+
+            // Show selected view
+            const targetPage = document.getElementById(`page-${pageId}`);
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+
+            // If switching to history, refresh records
+            if (pageId === 'history') {
+                fetchHistory();
+            }
+
+            // Scroll top smoothly
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // =============================================================
+        // Form & Classification Actions
+        // =============================================================
+        function selectTemplate(text) {
+            const input = document.getElementById('complaintInput');
+            input.value = text;
+            updateCharCount();
+            classifyComplaint();
+        }
+
+        function updateCharCount() {
+            const len = document.getElementById('complaintInput').value.length;
+            document.getElementById('charCount').textContent = len;
+        }
+
+        function clearInputForm() {
+            document.getElementById('complaintInput').value = '';
+            updateCharCount();
+            document.getElementById('homePlaceholder').style.display = 'block';
+            document.getElementById('homeResultBox').style.display = 'none';
+        }
+
+        async function classifyComplaint() {
+            const inputEl = document.getElementById('complaintInput');
+            const text = inputEl.value.trim();
+
+            if (!text) {
+                alert("Please enter a complaint description before classifying.");
+                inputEl.focus();
+                return;
+            }
+
+            const btn = document.getElementById('btnClassify');
+            const spinner = document.getElementById('btnSpinner');
+            const btnText = document.getElementById('btnText');
+
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+            btnText.textContent = 'Classifying...';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ complaint: text })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    latestPredictionData = data;
+                    renderHomeResult(data);
+                    renderAIInsights(data);
+                    renderComplaintAnalysis(data);
+                    fetchHistory(); // refresh history in background
+                } else {
+                    alert(data.error || "An error occurred during classification.");
+                }
+            } catch (err) {
+                console.error("Connection error:", err);
+                alert("Could not connect to the server. Please verify Flask is running.");
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+                btnText.textContent = 'Classify Complaint';
+            }
+        }
+
+        // =============================================================
+        // Render 1. Home Page Result
+        // =============================================================
+        function renderHomeResult(data) {
+            document.getElementById('homePlaceholder').style.display = 'none';
+            const resultBox = document.getElementById('homeResultBox');
+            resultBox.style.display = 'block';
+
+            const dept = data.prediction;
+            const icon = DEPT_ICONS[dept] || "🏛️";
+            const confPct = (data.confidence * 100).toFixed(1);
+
+            // Banner
+            const banner = document.getElementById('homeDeptBanner');
+            banner.className = `result-header-box theme-${dept.toLowerCase()}`;
+            document.getElementById('homeDeptIcon').textContent = icon;
+            document.getElementById('homeDeptName').textContent = `${dept} Department`;
+            document.getElementById('homeConfidenceVal').textContent = `${confPct}%`;
+
+            // Priority Badge
+            const priorityBadge = document.getElementById('homePriorityBadge');
+            priorityBadge.className = `badge ${data.urgency.badge_class}`;
+            priorityBadge.textContent = data.urgency.level;
+
+            // Probabilities
+            renderProbabilityList('homeProbList', data.all_probabilities);
+        }
+
+        function renderProbabilityList(containerId, probabilities) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            for (const [dept, prob] of Object.entries(probabilities)) {
+                const pct = (prob * 100).toFixed(1);
+                const icon = DEPT_ICONS[dept] || "🏛️";
+
+                const item = document.createElement('div');
+                item.className = 'prob-item';
+                item.innerHTML = `
+                    <div class="prob-row-header">
+                        <span class="prob-row-name">${icon} ${dept}</span>
+                        <span class="prob-row-val">${pct}%</span>
+                    </div>
+                    <div class="prob-bar-track">
+                        <div class="prob-bar-fill fill-${dept.toLowerCase()}" style="width: ${pct}%"></div>
+                    </div>
+                `;
+                container.appendChild(item);
+            }
+        }
+
+        // =============================================================
+        // Render 2. AI Insights Page
+        // =============================================================
+        function renderAIInsights(data) {
+            const dept = data.prediction;
+            document.getElementById('insightsDeptBadge').textContent = `${dept} Department`;
+            document.getElementById('insightsExplanationText').textContent = data.explainability.explanation;
+
+            // Review status
+            const reviewBox = document.getElementById('insightsReviewBox');
+            const reviewIcon = document.getElementById('insightsReviewIcon');
+            const reviewTitle = document.getElementById('insightsReviewTitle');
+            const reviewDesc = document.getElementById('insightsReviewDesc');
+
+            if (data.human_review.needs_review) {
+                reviewBox.className = 'status-box status-box-warning';
+                reviewIcon.textContent = '⚠️';
+                reviewTitle.textContent = 'Verification Recommended';
+                reviewDesc.textContent = data.human_review.message;
+            } else {
+                reviewBox.className = 'status-box status-box-success';
+                reviewIcon.textContent = '✓';
+                reviewTitle.textContent = 'Automatic Routing Verified';
+                reviewDesc.textContent = data.human_review.message;
+            }
+
+            // Important words list (Simple and easy to read)
+            const wordsListEl = document.getElementById('insightsWordsList');
+            wordsListEl.innerHTML = '';
+
+            if (data.explainability.contributing_words && data.explainability.contributing_words.length > 0) {
+                data.explainability.contributing_words.forEach(w => {
+                    const row = document.createElement('div');
+                    row.className = 'word-card';
+                    row.innerHTML = `
+                        <span class="word-token">${escapeHtml(w.word)}</span>
+                        <div class="word-meta">
+                            <span class="word-badge">${w.importance_level || 'Influential Word'}</span>
+                            <div class="word-bar-track" title="${w.impact_percentage}% importance">
+                                <div class="word-bar-fill" style="width: ${w.impact_percentage}%"></div>
+                            </div>
+                            <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); min-width: 38px; text-align: right;">${w.impact_percentage}%</span>
+                        </div>
+                    `;
+                    wordsListEl.appendChild(row);
+                });
+            } else {
+                wordsListEl.innerHTML = `
+                    <div class="placeholder-box" style="padding: 1rem;">
+                        <div class="placeholder-text">No specific department keywords influenced this prediction. Routing was determined by general phrasing.</div>
+                    </div>
+                `;
+            }
+
+            // Probabilities on insights page
+            renderProbabilityList('insightsProbList', data.all_probabilities);
+
+            // Urgency
+            const urgBadge = document.getElementById('insightsUrgencyBadge');
+            urgBadge.className = `badge ${data.urgency.badge_class}`;
+            urgBadge.textContent = data.urgency.level;
+            document.getElementById('insightsUrgencyDesc').textContent = data.urgency.description;
+        }
+
+        // =============================================================
+        // Render 3. Complaint Analysis Page
+        // =============================================================
+        function renderComplaintAnalysis(data) {
+            document.getElementById('analysisOriginalText').textContent = data.preprocessing.original || '-';
+            document.getElementById('analysisCleanedText').textContent = data.preprocessing.cleaned || '-';
+
+            // Preprocessing steps: separate cards in a 2-column grid
+            const stepGrid = document.getElementById('analysisStepGrid');
+            stepGrid.innerHTML = '';
+
+            data.preprocessing.steps.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'analysis-step-card';
+                card.innerHTML = `
+                    <div>
+                        <div class="step-card-header">
+                            <span class="step-card-badge">Step 0${s.step_number}</span>
+                            <span class="step-card-icon">${s.icon || '⚙️'}</span>
+                        </div>
+                        <h4 class="step-card-title">${escapeHtml(s.title)}</h4>
+                        <p class="step-card-description">${escapeHtml(s.description)}</p>
+                    </div>
+                    <div class="step-card-output-wrapper">
+                        <div class="step-output-label">Text at this step:</div>
+                        <div class="step-output-box">${escapeHtml(s.output)}</div>
+                    </div>
+                `;
+                stepGrid.appendChild(card);
+            });
+
+            // Similar complaints
+            const dup = data.duplicate_detection;
+            document.getElementById('analysisSimilarityVal').textContent = `${dup.similarity_percentage}%`;
+            const badge = document.getElementById('analysisDupBadge');
+
+            if (dup.is_similar) {
+                badge.className = 'badge badge-priority-high';
+                badge.textContent = 'Similar Match Found';
+                document.getElementById('analysisSimilarDept').textContent = `Department: ${dup.similar_department || 'Unknown'}`;
+                document.getElementById('analysisSimilarDate').textContent = `Logged: ${dup.similar_date || 'N/A'}`;
+                document.getElementById('analysisSimilarText').textContent = `"${dup.similar_complaint}"`;
+            } else {
+                badge.className = 'badge badge-priority-low';
+                badge.textContent = 'No Match';
+                if (dup.similar_complaint) {
+                    document.getElementById('analysisSimilarDept').textContent = `Department: ${dup.similar_department}`;
+                    document.getElementById('analysisSimilarDate').textContent = `Logged: ${dup.similar_date}`;
+                    document.getElementById('analysisSimilarText').textContent = `"${dup.similar_complaint}" (Similarity below 60% threshold)`;
+                } else {
+                    document.getElementById('analysisSimilarDept').textContent = `Department: -`;
+                    document.getElementById('analysisSimilarDate').textContent = `Date: -`;
+                    document.getElementById('analysisSimilarText').textContent = `No similar complaints found in past records.`;
+                }
+            }
+        }
+
+        // =============================================================
+        // Render 4. History Page & Clickable Rows
+        // =============================================================
+        async function fetchHistory() {
+            const tbody = document.getElementById('historyTableBody');
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    const countEl = document.getElementById('historyRecordCount');
+                    countEl.textContent = `${data.count} complaint${data.count === 1 ? '' : 's'} recorded`;
+
+                    if (data.history && data.history.length > 0) {
+                        tbody.innerHTML = '';
+                        data.history.forEach((row) => {
+                            const icon = DEPT_ICONS[row.predicted_department] || "🏛️";
+                            const conf = (row.confidence * 100).toFixed(1);
+
+                            let priorityClass = 'badge-priority-low';
+                            if (row.urgency.includes('High')) priorityClass = 'badge-priority-high';
+                            else if (row.urgency.includes('Medium')) priorityClass = 'badge-priority-medium';
+
+                            // Clean compact single-line preview
+                            const rawText = row.original_text || '';
+                            const previewText = rawText.length > 62 ? rawText.substring(0, 59) + '...' : rawText;
+
+                            const tr = document.createElement('tr');
+                            tr.className = 'history-row-compact';
+                            tr.title = `Click to view full details for complaint #${row.id}`;
+                            tr.onclick = () => openComplaintDetails(row.id);
+
+                            tr.innerHTML = `
+                                <td class="history-cell-id">#${row.id}</td>
+                                <td class="history-cell-desc" title="${escapeHtml(rawText)}">
+                                    <span class="history-preview-text">${escapeHtml(previewText)}</span>
+                                </td>
+                                <td>
+                                    <span class="badge theme-${row.predicted_department.toLowerCase()}">
+                                        ${icon} ${row.predicted_department}
+                                    </span>
+                                </td>
+                                <td class="history-cell-conf">${conf}%</td>
+                                <td>
+                                    <span class="badge ${priorityClass}">${row.urgency}</span>
+                                </td>
+                                <td class="history-cell-date">${row.created_at}</td>
+                                <td style="text-align: right;">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-secondary btn-compact" 
+                                        onclick="event.stopPropagation(); openComplaintDetails(${row.id});"
+                                    >
+                                        View Details →
+                                    </button>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    } else {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                    No complaints recorded yet. Submit a complaint from the Home page.
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching history:", err);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #DC2626; padding: 2.5rem;">
+                            Failed to load history records from the server.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        async function confirmClearHistory() {
+            if (!confirm("Are you sure you want to clear all prediction history? This action cannot be undone.")) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/history/clear', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    fetchHistory();
+                } else {
+                    alert(data.error || "Could not clear history.");
+                }
+            } catch (err) {
+                console.error("Error clearing history:", err);
+                alert("Failed to clear history due to a server connection error.");
+            }
+        }
+
+        // =============================================================
+        // 5. Complaint Details Page Navigation & Rendering
+        // Retrieves actual saved prediction details directly from DB!
+        // =============================================================
+        async function openComplaintDetails(recordId) {
+            // Activate Details view (hides history and others)
+            document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-details').classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Display loading placeholder while fetching saved record
+            document.getElementById('detailsPageTitle').textContent = `Loading Complaint #${recordId}...`;
+
+            try {
+                const res = await fetch(`/api/history/${recordId}`);
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    const record = data;
+                    const d = data.details;
+                    activeRecordDetails = d;
+
+                    document.getElementById('detailsPageTitle').textContent = `Complaint Details #${record.record_id}`;
+                    document.getElementById('detailsSubmissionDate').textContent = `Submitted on ${record.created_at}`;
+
+                    // Complaint text
+                    document.getElementById('detailsOriginalText').textContent = d.complaint || '-';
+                    document.getElementById('detailsCleanedText').textContent = d.clean_complaint || '-';
+
+                    // Department & Confidence
+                    const dept = d.prediction;
+                    const icon = DEPT_ICONS[dept] || "🏛️";
+                    const conf = (d.confidence * 100).toFixed(1);
+
+                    const banner = document.getElementById('detailsDeptBanner');
+                    banner.className = `result-header-box theme-${dept.toLowerCase()}`;
+                    document.getElementById('detailsDeptIcon').textContent = icon;
+                    document.getElementById('detailsDeptName').textContent = `${dept} Department`;
+                    document.getElementById('detailsConfidenceVal').textContent = `${conf}%`;
+
+                    // Probabilities
+                    renderProbabilityList('detailsProbList', d.all_probabilities || {});
+
+                    // Priority & Urgency
+                    const urg = d.urgency || {};
+                    const priorityBadge = document.getElementById('detailsPriorityBadge');
+                    priorityBadge.className = `badge ${urg.badge_class || 'badge-priority-low'}`;
+                    priorityBadge.textContent = urg.level || 'Low Priority';
+
+                    const kwBox = document.getElementById('detailsKeywordsBox');
+                    kwBox.innerHTML = '';
+                    if (urg.matched_keywords && urg.matched_keywords.length > 0) {
+                        urg.matched_keywords.forEach(kw => {
+                            const sp = document.createElement('span');
+                            sp.className = 'word-badge';
+                            sp.textContent = kw;
+                            kwBox.appendChild(sp);
+                        });
+                    } else {
+                        kwBox.innerHTML = '<span class="word-badge">None</span>';
+                    }
+                    document.getElementById('detailsUrgencyReason').textContent = urg.description || urg.reason || 'Standard routing priority.';
+
+                    // Explanation
+                    const exp = d.explainability || {};
+                    document.getElementById('detailsExplanationText').textContent = exp.explanation || 'No explanation saved.';
+
+                    // Important words
+                    const wordsBox = document.getElementById('detailsWordsList');
+                    wordsBox.innerHTML = '';
+                    if (exp.contributing_words && exp.contributing_words.length > 0) {
+                        exp.contributing_words.forEach(w => {
+                            const row = document.createElement('div');
+                            row.className = 'word-card';
+                            row.innerHTML = `
+                                <span class="word-token">${escapeHtml(w.word)}</span>
+                                <div class="word-meta">
+                                    <span class="word-badge">${w.importance_level || 'Influential Word'}</span>
+                                    <div class="word-bar-track">
+                                        <div class="word-bar-fill" style="width: ${w.impact_percentage}%"></div>
+                                    </div>
+                                    <span style="font-size: 0.8125rem; font-weight: 600; min-width: 36px; text-align: right;">${w.impact_percentage}%</span>
+                                </div>
+                            `;
+                            wordsBox.appendChild(row);
+                        });
+                    } else {
+                        wordsBox.innerHTML = '<div style="font-size: 0.8125rem; color: var(--text-muted);">No specific keywords recorded.</div>';
+                    }
+
+                    // Review status
+                    const rev = d.human_review || {};
+                    const revBox = document.getElementById('detailsReviewBox');
+                    const revIcon = document.getElementById('detailsReviewIcon');
+                    const revText = document.getElementById('detailsReviewText');
+
+                    if (rev.needs_review) {
+                        revBox.className = 'status-box status-box-warning';
+                        revIcon.textContent = '⚠️';
+                        revText.textContent = rev.message || 'Low confidence - Human verification recommended.';
+                    } else {
+                        revBox.className = 'status-box status-box-success';
+                        revIcon.textContent = '✓';
+                        revText.textContent = rev.message || 'Prediction confidence is sufficient for automatic routing.';
+                    }
+
+                    // Similar complaint
+                    const dup = d.duplicate_detection || {};
+                    document.getElementById('detailsSimilarScore').textContent = `Similarity: ${dup.similarity_percentage || 0}%`;
+                    document.getElementById('detailsSimilarDept').textContent = `Department: ${dup.similar_department || 'None'}`;
+                    document.getElementById('detailsSimilarText').textContent = dup.similar_complaint ? `"${dup.similar_complaint}"` : 'No similar complaints detected.';
+                } else {
+                    alert(data.error || "Could not load complaint details.");
+                    showPage('history');
+                }
+            } catch (err) {
+                console.error("Error fetching record details:", err);
+                alert("Failed to connect to the server.");
+                showPage('history');
+            }
+        }
+
+        // Re-analyze option from details page
+        function reanalyzeCurrentRecord() {
+            if (activeRecordDetails && activeRecordDetails.complaint) {
+                const text = activeRecordDetails.complaint;
+                document.getElementById('complaintInput').value = text;
+                updateCharCount();
+                showPage('home');
+                classifyComplaint();
+            }
+        }
+
+        // Helpers
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
